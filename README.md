@@ -1,1 +1,1 @@
-[![Build Status](https://secure.travis-ci.org/cleggatt/gowest.png)](http://travis-ci.org/cleggatt/gowest)
+[![Build Status](https://secure.travis-ci.org/cleggatt/gowest.png)](http://travis-ci.org/cleggatt/gowest) [![Coverage Status](https://coveralls.io/repos/cleggatt/gowest/badge.png?branch=master)](https://coveralls.io/r/cleggatt/gowest?branch=master)
