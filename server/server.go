@@ -75,8 +75,8 @@ func (mutex *handlerMutex) registerHandler(typeName string, handler GetHandler) 
 }
 
 func (mutex *handlerMutex) getHandler(typeName string) GetHandler {
-	mutex.mutex.Lock()
-	defer mutex.mutex.Unlock()
+	mutex.mutex.RLock()
+	defer mutex.mutex.RUnlock()
 
 	// TODO Handle missing map entry
 	return mutex.handlers[typeName].handler
