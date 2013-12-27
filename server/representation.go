@@ -69,39 +69,49 @@ func createLoadTemplateError(format string, err error) *RequestError {
 	}
 }
 
-func MarshallResponse(i interface{}, wr io.Writer, r *http.Request) *RequestError {
+func getJsonBytes(i interface{}) ([]byte, *RequestError) {
+	bytes, err := json.Marshal(i)
+	if err != nil {
+		log.Printf("Unable to marshall instance of [%v] ([%v]): %v", fmtType(i), i, err)
+		return nil, internalRequestError(err)
+	}
+	return bytes, nil
+}
+
+func getTemplateBytes(i interface{}, format string) ([]byte, *RequestError) {
+	template, err := loadTemplate(i, format)
+	if err != nil {
+		return nil, createLoadTemplateError(format, err)
+	}
+	// TODO Allocate the buffer to be the same size of the template
+	// The execution process writes directly to the buffer, so it may write bytes before finding an error
+	buff := new(bytes.Buffer)
+	if err := template.execute(i, buff); err != nil {
+		log.Printf("Unable to process template [%v]", err)
+		return nil, internalRequestError(err)
+	}
+	return buff.Bytes(), nil
+}
+
+func getBytes(i interface{}, r *http.Request) ([]byte, *RequestError) {
 	// If the fmt parameter appears twice, we take the first one
-	// TODO Default to first format in list
-	format := r.URL.Query().Get("fmt")
-	if format == "json" {
-		bytes, err := json.Marshal(i)
-		if err != nil {
-			log.Printf("Unable to marshall instance of [%v] ([%v]): %v", fmtType(i), i, err)
-			return internalRequestError(err)
-		}
-		if _, err := wr.Write(bytes); err != nil {
-			// At this point, it's likely we won't be able to write this internal service error anyway
-			log.Printf("Unable to write response [%v]: %v", string(bytes), err)
-			return internalRequestError(err)
-		}
+	// TODO Default to first format in list if none is specified
+	if format := r.URL.Query().Get("fmt"); format != "json" {
+		return getTemplateBytes(i, format)
 	} else {
-		template, err := loadTemplate(i, format)
-		if err != nil {
-			return createLoadTemplateError(format, err)
-		}
-		// TODO Allow the disabling of this format checking for efficiency (if desired)
-		// TODO Allocate the buffer to be the same size of the template
-		// The execution process writes directly to the buffer, so it may write bytes before finding an error
-		buff := new(bytes.Buffer)
-		if err := template.execute(i, buff); err != nil {
-			log.Printf("Unable to process template [%v]", err)
-			return internalRequestError(err)
-		}
-		if _, err := wr.Write(buff.Bytes()); err != nil {
-			// At this point, it's likely we won't be able to write this internal service error anyway
-			log.Printf("Unable to write response [%v]: %v", buff.String(), err)
-			return internalRequestError(err)
-		}
+		return getJsonBytes(i)
+	}
+}
+
+func MarshallResponse(i interface{}, wr io.Writer, r *http.Request) *RequestError {
+	bytes, err := getBytes(i, r)
+	if err != nil {
+		return err
+	}
+	if _, err := wr.Write(bytes); err != nil {
+		// At this point, it's likely we won't be able to write this internal service error anyway
+		log.Printf("Unable to write response [%v]: %v", string(bytes), err)
+		return internalRequestError(err)
 	}
 	return nil
 }
