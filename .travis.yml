@@ -2,7 +2,8 @@ language: go
 go:
   - 1.2
 before_install:
-  - go get github.com/franela/goblin
+  - go get github.com/onsi/ginkgo
+  - go get github.com/onsi/gomega
   - go get code.google.com/p/go.tools/cmd/cover
   - go get github.com/axw/gocov/gocov
   - go get github.com/mattn/goveralls

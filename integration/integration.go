@@ -2,27 +2,27 @@ package main
 
 import (
 	"bytes"
-	"io/ioutil"
 	. "github.com/cleggatt/gowest/server"
+	"io/ioutil"
 	"log"
 	"net/http"
 )
 
-type Book struct {
+type book struct {
 	Title  string `json:"title"`
 	Author string `json:"author"`
 }
 
 func getBookHandler() interface{} {
-	return Book{"Neuromancer", "Gibson, William"}
+	return book{"Neuromancer", "Gibson, William"}
 }
 
 func main() {
-	Resource(new(Book), getBookHandler);
+	Resource(new(book), getBookHandler)
 
 	go http.ListenAndServe(":8080", nil)
 
-	resp, err := http.Get("http://localhost:8080/Book?fmt=json")
+	resp, err := http.Get("http://localhost:8080/book?fmt=json")
 	if err != nil {
 		log.Fatal(err)
 	}
