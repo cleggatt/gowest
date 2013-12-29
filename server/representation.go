@@ -30,43 +30,42 @@ func (at anyTemplate) execute(i interface{}, w io.Writer) error {
 	return at.template.Execute(w, i)
 }
 
-func parseHtmlTemplate(filename string) (anyTemplate, error) {
+func parseHtmlTemplate(filename string) (*anyTemplate, error) {
 	var t, err = hTemplate.ParseFiles(filename)
-	return anyTemplate{t}, err
+	return &anyTemplate{t}, err
 }
 
-func parseTextTemplate(filename string) (anyTemplate, error) {
+func parseTextTemplate(filename string) (*anyTemplate, error) {
 	var t, err = tTemplate.ParseFiles(filename)
-	return anyTemplate{t}, err
+	return &anyTemplate{t}, err
 }
 
-func loadTemplate(i interface{}, format string) (anyTemplate, error) {
-	typeName := fmtType(i)
+func parseTemplate(i interface{}, format string, filename string) (*anyTemplate, error) {
+	// FIXME check extension for all html variants htm HTML xhtml OR use config list?
 	if format == "html" {
-		return parseHtmlTemplate(typeName + ".html")
+		return parseHtmlTemplate(filename)
 	} else {
 		// Since we don't know anything about these formats, we need to rely on the template to do what's right
 		// e.g. for a CSV the template should enclose all fields in double quotes to handle special characters
-		// FIXME Security risk - using client data input
-		// TODO Add in support for a list of supported formats, the use of which should be recommended
-		// TODO If taking the format from the client (i.e. there is no list of valid formats), lower case it
-		return parseTextTemplate(typeName + "." + format)
+		return parseTextTemplate(filename)
 	}
 }
 
-func createLoadTemplateError(format string, err error) *RequestError {
-	// FIXME We're assuming that any PathError will be caused by the file not existing - we should in fact
-	// explicitly check for the existence of the file
-	if perr, ok := err.(*os.PathError); ok {
-		log.Printf("Template does not exist: %v", perr)
-		// FIXME Security risk - using client data input
-		// TODO List supported formats in response
-		return &RequestError{Error: perr, Message: fmt.Sprintf("'%s' is not a supported format", format), Code: http.StatusNotAcceptable}
-	} else {
-		// TODO When we fix the above, add a test for this case
-		log.Printf("Unable to load template: %v", err)
-		return internalRequestError(err)
+func loadTemplate(i interface{}, format string) (*anyTemplate, *RequestError) {
+	// FIXME Security risk - using client data input
+	// TODO Add in support for a list of supported formats, the use of which should be recommended
+	// TODO If taking the format from the client (i.e. there is no list of valid formats), lower case it
+	filename := fmtType(i) + "." + format;
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		log.Printf("Template [%s] does not exist: %v", filename, err)
+		return nil, &RequestError{Error: err, Message: fmt.Sprintf("'%s' is not a supported format", format), Code: http.StatusNotAcceptable}
 	}
+	t, err := parseTemplate(i, format, filename);
+	if err != nil {
+		log.Printf("Unable to parse template: %v", err)
+		return nil, internalRequestError(err)
+	}
+	return t, nil
 }
 
 func getJsonBytes(i interface{}) ([]byte, *RequestError) {
@@ -81,7 +80,7 @@ func getJsonBytes(i interface{}) ([]byte, *RequestError) {
 func getTemplateBytes(i interface{}, format string) ([]byte, *RequestError) {
 	template, err := loadTemplate(i, format)
 	if err != nil {
-		return nil, createLoadTemplateError(format, err)
+		return nil, err;
 	}
 	// TODO Allocate the buffer to be the same size of the template
 	// The execution process writes directly to the buffer, so it may write bytes before finding an error
@@ -94,8 +93,8 @@ func getTemplateBytes(i interface{}, format string) ([]byte, *RequestError) {
 }
 
 func getBytes(i interface{}, r *http.Request) ([]byte, *RequestError) {
-	// If the fmt parameter appears twice, we take the first one
 	// TODO Default to first format in list if none is specified
+	// If the fmt parameter appears twice, we take the first one
 	if format := r.URL.Query().Get("fmt"); format != "json" {
 		return getTemplateBytes(i, format)
 	} else {
