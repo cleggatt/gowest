@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 )
 
-func serverBookHandler() interface{} {
-	return book{"Neuromancer", "Gibson, William"}
+func serverBookHandler(_ PathParameters) (interface{}, *RequestError) {
+	return book{"Neuromancer", "Gibson, William"}, nil
 }
 
 var _ = Describe("Main handler", func() {

@@ -56,6 +56,7 @@ func loadTemplate(i interface{}, format string) (*anyTemplate, *RequestError) {
 	// TODO Add in support for a list of supported formats, the use of which should be recommended
 	// TODO If taking the format from the client (i.e. there is no list of valid formats), lower case it
 	filename := fmtType(i) + "." + format;
+	// TODO Extract to a "exists" method
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		log.Printf("Template [%s] does not exist: %v", filename, err)
 		return nil, &RequestError{Error: err, Message: fmt.Sprintf("'%s' is not a supported format", format), Code: http.StatusNotAcceptable}

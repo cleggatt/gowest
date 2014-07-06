@@ -5,11 +5,30 @@ import (
 	"log"
 	"net/http"
 	"reflect"
+	"regexp"
 	"strings"
 	"sync"
 )
 
-type GetHandler func() interface{}
+type PathParameters interface {
+	Get(param string) (string, *RequestError)
+	AsMap() map[string]string
+	// TODO Add GetAsInt, etc. Will need to distinguish between missing and invalid
+}
+
+type parameterMap map[string]string
+
+func (m parameterMap) Get(param string) (string, *RequestError) {
+	// TODO Return 400 is string is missing
+	return m[param], nil
+}
+
+func (m parameterMap) AsMap() map[string]string {
+	return m
+}
+
+// TODO Should we have a type with no PathParameters?
+type GetHandler func(params PathParameters) (interface{}, *RequestError)
 
 // TODO Fix naming i.e. handlerMutex.mutex
 type handlerMutex struct {
@@ -18,25 +37,30 @@ type handlerMutex struct {
 }
 
 type mutexEntry struct {
-	handler  GetHandler
 	typeName string
+	pattern string
+	handler GetHandler
 }
 
 func newHandlerMutex() *handlerMutex { return &handlerMutex{handlers: make(map[string]mutexEntry)} }
 
-func (mutex *handlerMutex) registerHandler(typeName string, handler GetHandler) {
+func (mutex *handlerMutex) registerHandler(typeName string, pattern string, handler GetHandler) {
 	mutex.mutex.Lock()
 	defer mutex.mutex.Unlock()
 
-	mutex.handlers[typeName] = mutexEntry{handler: handler, typeName: typeName}
+	mutex.handlers[typeName] = mutexEntry{typeName: typeName, pattern: pattern, handler: handler }
 }
 
-func (mutex *handlerMutex) getHandler(typeName string) GetHandler {
+// FIXME Does naming the string actually make the signature clearer? Confirm that it appears in godocs
+// FIXME e.g. It would be nice to describe this has (GetHandler, pattern string)
+// FIXME BUT Using named seems to crate temp variables unncessarily see  getInterfaceTypeName()
+func (mutex *handlerMutex) getHandler(typeName string) (GetHandler, string) {
 	mutex.mutex.RLock()
 	defer mutex.mutex.RUnlock()
 
 	// TODO Handle missing map entry
-	return mutex.handlers[typeName].handler
+	entry := mutex.handlers[typeName]
+	return entry.handler, entry.pattern
 }
 
 func ClearHandlers() {
@@ -57,23 +81,49 @@ func getInterfaceTypeName(i interface{}) (t reflect.Type, name string) {
 	return
 }
 
+var patternRegex = regexp.MustCompile("\\{([a-z_]+)\\}/")
+var urlRegex = regexp.MustCompile("([a-z_]+)/")
+
+func extractParameters(parameterPath string, pattern string) PathParameters {
+	// TODO Validate url elements against expected OR pass in remaining values in list. Perhaps use "*" to allow this
+	patternElements := patternRegex.FindAllStringSubmatch(pattern, -1)
+	parameterElements := urlRegex.FindAllStringSubmatch(parameterPath, -1)
+
+	pathParams := parameterMap(make(map[string]string, len(patternElements)))
+	for idx, element := range patternElements {
+		pathParams[element[1]] = parameterElements[idx][1]
+	}
+
+	return pathParams
+}
+
 func Resource(i interface{}, handler GetHandler) {
 	t, name := getInterfaceTypeName(i)
 	log.Printf("Registering GET handler for [%s] as [%s]\n", t.String(), name)
-	defaultHandlerMutex.registerHandler(name, handler)
+	defaultHandlerMutex.registerHandler(name, "", handler)
+}
+
+func ParameterisedResource(i interface{}, pattern string, handler GetHandler) {
+	t, name := getInterfaceTypeName(i)
+	log.Printf("Registering GET handler for [%s] as [%s] with [%s]\n", t.String(), name, pattern)
+	defaultHandlerMutex.registerHandler(name, pattern, handler)
 }
 
 func GetResource(r *http.Request) (interface{}, *RequestError) {
-	// TODO Handle invalid URL
-	typeName := strings.TrimPrefix(r.URL.Path, "/")
-	log.Printf("GET request for [%v]\n", typeName)
+	// TODO Handle invalid URLs when determining typeName and suffix. Note, we should always have a leading "/"
+	typeName := strings.Trim(strings.SplitAfterN(r.URL.Path, "/", 3)[1], "/")
+	parameterPath := strings.TrimPrefix(r.URL.Path, "/" + typeName + "/")
+	log.Printf("GET request for [%v] [%v]\n", typeName, parameterPath)
 
-	handler := defaultHandlerMutex.getHandler(typeName)
+	handler, pattern := defaultHandlerMutex.getHandler(typeName)
 	if handler == nil {
 		log.Printf("No handler registered for %s", typeName)
 		return nil, &RequestError{Error: fmt.Errorf("No handler registered for %s", typeName), Message: "Invalid resource type", Code: http.StatusNotFound}
 	}
+	log.Printf("Found GET handler for [%v] with [%v\n", typeName, pattern)
 
-	log.Printf("Found GET handler for [%v]\n", typeName)
-	return handler(), nil
+	pathParams := extractParameters(parameterPath, pattern)
+	resource, err := handler(pathParams)
+
+	return resource, err
 }
