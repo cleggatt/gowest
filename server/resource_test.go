@@ -37,7 +37,7 @@ var _ = Describe("GET resource handler", func() {
 	Describe("registering a type", func() {
 		It("should allow use of a instance", func() {
 			// Exercise
-			Resource(book{}, getSingleResourceHandler)
+			SingletonResource(book{}, getSingleResourceHandler)
 			// Verify
 			req := request("http://localhost:8080/book?fmt=json")
 
@@ -47,7 +47,7 @@ var _ = Describe("GET resource handler", func() {
 		})
 		It("should allow use of a pointer", func() {
 			// Exercise
-			Resource(new(book), getSingleResourceHandler)
+			SingletonResource(new(book), getSingleResourceHandler)
 			// Verify
 			req := request("http://localhost:8080/book?fmt=json")
 
@@ -60,7 +60,7 @@ var _ = Describe("GET resource handler", func() {
 		Context("when requesting a non-existent resource", func() {
 			It("should return a 404 error", func() {
 				// Exercise
-				Resource(new(book), getSingleResourceHandler)
+				SingletonResource(new(book), getSingleResourceHandler)
 				// Verify
 				req := request("http://localhost:8080/rook?fmt=json")
 
@@ -74,7 +74,7 @@ var _ = Describe("GET resource handler", func() {
 		Context("when dealing with returned resources", func() {
 			It("should handle single instances", func() {
 				// Setup
-				Resource(book{}, getSingleResourceHandler)
+				SingletonResource(book{}, getSingleResourceHandler)
 				// Exercise
 				req := request("http://localhost:8080/book?fmt=json")
 				res, err := GetResource(req)
@@ -84,7 +84,7 @@ var _ = Describe("GET resource handler", func() {
 			})
 			It("should handle collections", func() {
 				// Setup
-				Resource(book{}, getResourceCollectionHandler)
+				SingletonResource(book{}, getResourceCollectionHandler)
 				// Exercise
 				req := request("http://localhost:8080/book?fmt=json")
 				res, err := GetResource(req)
@@ -95,7 +95,7 @@ var _ = Describe("GET resource handler", func() {
 			It("should handle RequestErrors", func() {
 				// Exercise
 				// TODO Parameterise errorResourceHandler to make test clearer
-				Resource(new(book), errorResourceHandler)
+				SingletonResource(new(book), errorResourceHandler)
 				// Verify
 				req := request("http://localhost:8080/book?fmt=json")
 
@@ -110,14 +110,14 @@ var _ = Describe("GET resource handler", func() {
 		Context("when requesting with path parameters", func() {
 			// TODO Should complain if invalid params are passed
 			// TODO Should complain if params are passed in the wrong order
-			// TODO Allow leading "/" and a missing last "/" in the pattern
+			// TODO Allow leading "/" and a missing last "/" in the pattern and URL
 			// TODO Ignore static string sections eg "{last}/ignore/{first}/"
 			It("should pass parameters to the handler by name", func() {
 				// Setup
 				params := make(map[string]string)
-				ParameterisedResource(book{}, "{author_last}/{author_first}/", createParameterAccumulator(&params))
+				Resource(book{}, "/{author_last}/{author_first}", createParameterAccumulator(&params))
 				// Exercise
-				req := request("http://localhost:8080/book/hamilton/peter_f/")
+				req := request("http://localhost:8080/book/hamilton/peter_f")
 				GetResource(req)
 				// Verify
 				Expect(params).To(Equal(map[string]string {"author_last": "hamilton", "author_first": "peter_f"}))

@@ -81,8 +81,9 @@ func getInterfaceTypeName(i interface{}) (t reflect.Type, name string) {
 	return
 }
 
-var patternRegex = regexp.MustCompile("\\{([a-z_]+)\\}/")
-var urlRegex = regexp.MustCompile("([a-z_]+)/")
+// TODO Support more characters
+var patternRegex = regexp.MustCompile("/\\{([a-z_]+)\\}")
+var urlRegex = regexp.MustCompile("/([a-z_]+)")
 
 func extractParameters(parameterPath string, pattern string) PathParameters {
 	// TODO Validate url elements against expected OR pass in remaining values in list. Perhaps use "*" to allow this
@@ -97,13 +98,13 @@ func extractParameters(parameterPath string, pattern string) PathParameters {
 	return pathParams
 }
 
-func Resource(i interface{}, handler GetHandler) {
+func SingletonResource(i interface{}, handler GetHandler) {
 	t, name := getInterfaceTypeName(i)
 	log.Printf("Registering GET handler for [%s] as [%s]\n", t.String(), name)
 	defaultHandlerMutex.registerHandler(name, "", handler)
 }
 
-func ParameterisedResource(i interface{}, pattern string, handler GetHandler) {
+func Resource(i interface{}, pattern string, handler GetHandler) {
 	t, name := getInterfaceTypeName(i)
 	log.Printf("Registering GET handler for [%s] as [%s] with [%s]\n", t.String(), name, pattern)
 	defaultHandlerMutex.registerHandler(name, pattern, handler)
@@ -112,7 +113,7 @@ func ParameterisedResource(i interface{}, pattern string, handler GetHandler) {
 func GetResource(r *http.Request) (interface{}, *RequestError) {
 	// TODO Handle invalid URLs when determining typeName and suffix. Note, we should always have a leading "/"
 	typeName := strings.Trim(strings.SplitAfterN(r.URL.Path, "/", 3)[1], "/")
-	parameterPath := strings.TrimPrefix(r.URL.Path, "/" + typeName + "/")
+	parameterPath := strings.TrimPrefix(r.URL.Path, "/" + typeName)
 	log.Printf("GET request for [%v] [%v]\n", typeName, parameterPath)
 
 	handler, pattern := defaultHandlerMutex.getHandler(typeName)
@@ -120,7 +121,7 @@ func GetResource(r *http.Request) (interface{}, *RequestError) {
 		log.Printf("No handler registered for %s", typeName)
 		return nil, &RequestError{Error: fmt.Errorf("No handler registered for %s", typeName), Message: "Invalid resource type", Code: http.StatusNotFound}
 	}
-	log.Printf("Found GET handler for [%v] with [%v\n", typeName, pattern)
+	log.Printf("Found GET handler for [%v] with [%v]\n", typeName, pattern)
 
 	pathParams := extractParameters(parameterPath, pattern)
 	resource, err := handler(pathParams)

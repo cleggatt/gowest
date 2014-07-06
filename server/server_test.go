@@ -20,7 +20,7 @@ var _ = Describe("Main handler", func() {
 		Context("for a valid request", func() {
 			It("should return a response", func() {
 				// Set up
-				Resource(new(book), serverBookHandler)
+				SingletonResource(new(book), serverBookHandler)
 				// Exercise
 				req := request("http://localhost:8080/book?fmt=json")
 				resp := httptest.NewRecorder()

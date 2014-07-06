@@ -13,16 +13,17 @@ type book struct {
 	Author string `json:"author"`
 }
 
-func getBookHandler() interface{} {
-	return book{"Neuromancer", "Gibson, William"}
+func getBookHandler(params PathParameters) (interface{}, *RequestError) {
+	title, _ := params.Get("title")
+	return book{title, "Gibson, William"}, nil
 }
 
 func main() {
-	Resource(new(book), getBookHandler)
+	Resource(new(book), "{title}/", getBookHandler)
 
 	go http.ListenAndServe(":8080", nil)
 
-	resp, err := http.Get("http://localhost:8080/book?fmt=json")
+	resp, err := http.Get("http://localhost:8080/book/Neuromancer?fmt=json")
 	if err != nil {
 		log.Fatal(err)
 	}
