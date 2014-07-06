@@ -19,7 +19,7 @@ func getBookHandler(params PathParameters) (interface{}, *RequestError) {
 }
 
 func main() {
-	Resource(new(book), "{title}/", getBookHandler)
+	Resource(book{}, "/{title}", getBookHandler)
 
 	go http.ListenAndServe(":8080", nil)
 

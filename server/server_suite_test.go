@@ -27,7 +27,6 @@ type book struct {
 
 func TestServer(t *testing.T) {
 	RegisterFailHandler(Fail)
-
 	log.SetOutput(ioutil.Discard)
 	RunSpecs(t, "Server Suite")
 }

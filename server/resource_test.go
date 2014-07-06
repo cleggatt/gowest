@@ -117,10 +117,10 @@ var _ = Describe("GET resource handler", func() {
 				params := make(map[string]string)
 				Resource(book{}, "/{author_last}/{author_first}", createParameterAccumulator(&params))
 				// Exercise
-				req := request("http://localhost:8080/book/hamilton/peter_f")
+				req := request("http://localhost:8080/book/Hamilton/Peter_F")
 				GetResource(req)
 				// Verify
-				Expect(params).To(Equal(map[string]string {"author_last": "hamilton", "author_first": "peter_f"}))
+				Expect(params).To(Equal(map[string]string {"author_last": "Hamilton", "author_first": "Peter_F"}))
 			})
 		})
 	})
