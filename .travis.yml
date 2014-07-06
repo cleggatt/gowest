@@ -8,4 +8,4 @@ before_install:
   - go get github.com/axw/gocov/gocov
   - go get github.com/mattn/goveralls
 script:
-  - $HOME/gopath/bin/goveralls -package ./server qmLv9EH7njGv8axqEYO1usHnnPISqCYNs
+  - $HOME/gopath/bin/goveralls -package ./server -repotoken qmLv9EH7njGv8axqEYO1usHnnPISqCYNs
